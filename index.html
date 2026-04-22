@@ -379,7 +379,7 @@
         🚀 GitHub'a Gönder
       </button>
       <div id="deploy-status" style="font-size:12px;margin-top:10px;min-height:18px"></div>
-      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v1.2</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v1.3</div>
     </div>
   </div>
 </div>
@@ -659,11 +659,11 @@ const MEALS_CONFIG = {
 };
 
 const SUPPS_ALL = [
-  { id:'kreatin',  icon:'💪', name:'Kreatin',      dose:'5g',              time:'Her gün • sabah veya öğlenle',       activeFor:['fitness','hali','bos',null] },
-  { id:'bcaa',     icon:'⚡', name:'BCAA',          dose:'Antrenman dozu',  time:'Antrenman/maç sırasında',            activeFor:['fitness','hali'] },
-  { id:'whey',     icon:'🥤', name:'Whey Protein',  dose:'30g (~1 ölçek)',  time:'Antrenman/maç sonrası 30 dk',        activeFor:['fitness','hali'] },
-  { id:'glutamin', icon:'🔄', name:'Glutamin',       dose:'5g',              time:'Akşam yemeği sonrası',               activeFor:['fitness','hali','bos',null] },
-  { id:'mag',      icon:'😴', name:'Magnezyum',      dose:'Biglisinat',      time:'Uyku öncesi 30–60 dk',               activeFor:['fitness','hali','bos',null] },
+  { id:'kreatin',  icon:'💪', name:'Kreatin',      dose:'5g',              time:'Her gün • sabah veya öğlenle',       activeFor:['fitness','hali','bos',null], protein:0  },
+  { id:'bcaa',     icon:'⚡', name:'BCAA',          dose:'Antrenman dozu',  time:'Antrenman/maç sırasında',            activeFor:['fitness','hali'],            protein:5  },
+  { id:'whey',     icon:'🥤', name:'Whey Protein',  dose:'30g (~1 ölçek)',  time:'Antrenman/maç sonrası 30 dk',        activeFor:['fitness','hali'],            protein:25 },
+  { id:'glutamin', icon:'🔄', name:'Glutamin',       dose:'5g',             time:'Akşam yemeği sonrası',               activeFor:['fitness','hali','bos',null], protein:0  },
+  { id:'mag',      icon:'😴', name:'Magnezyum',      dose:'Biglisinat',     time:'Uyku öncesi 30–60 dk',               activeFor:['fitness','hali','bos',null], protein:0  },
 ];
 
 // ── RENDER TODAY ────────────────────────────────────────
@@ -766,14 +766,19 @@ async function toggleSupp(id, key) {
 
 // ── PROTEIN ─────────────────────────────────────────────
 function renderProtein(data, sport) {
-  // Protein miktarını işaretlenen öğünlerden hesapla
-  var meals = MEALS_CONFIG[sport] || MEALS_CONFIG[null];
   var total = 0;
+  // Öğünlerden protein
+  var meals = MEALS_CONFIG[sport] || MEALS_CONFIG[null];
   meals.forEach(function(m) {
     if (data.meals && data.meals[m.id]) {
-      // p değerinden sayıyı çıkar (~45g -> 45)
       var match = m.p.match(/\d+/);
       if (match) total += parseInt(match[0]);
+    }
+  });
+  // Takviyelerden protein (whey, bcaa)
+  SUPPS_ALL.forEach(function(s) {
+    if (s.protein && data.supps && data.supps[s.id]) {
+      total += s.protein;
     }
   });
   var pct = Math.min(100, Math.round(total / PROTEIN_GOAL * 100));
