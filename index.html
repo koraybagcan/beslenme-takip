@@ -204,14 +204,6 @@
       <div class="protein-numbers"><span id="protein-current">0</span><span>/165g</span></div>
     </div>
     <div class="progress-track"><div class="progress-fill" id="protein-bar" style="width:0%"></div></div>
-    <div class="protein-sources" id="protein-sources">
-      <div class="source-chip" data-idx="0" data-val="25" onclick="toggleSource(this)">🥚 Yumurta x4 <span class="chip-protein">+25g</span></div>
-      <div class="source-chip" data-idx="1" data-val="50" onclick="toggleSource(this)">🍗 Tavuk 200g <span class="chip-protein">+50g</span></div>
-      <div class="source-chip" data-idx="2" data-val="35" onclick="toggleSource(this)">🐟 Ton balığı <span class="chip-protein">+35g</span></div>
-      <div class="source-chip" data-idx="3" data-val="45" onclick="toggleSource(this)">🥩 Kıyma 180g <span class="chip-protein">+45g</span></div>
-      <div class="source-chip" data-idx="4" data-val="25" onclick="toggleSource(this)">🥤 Whey shake <span class="chip-protein">+25g</span></div>
-      <div class="source-chip" data-idx="5" data-val="10" onclick="toggleSource(this)">🥛 Yoğurt <span class="chip-protein">+10g</span></div>
-    </div>
   </div>
 
   <div class="section">
@@ -387,7 +379,7 @@
         🚀 GitHub'a Gönder
       </button>
       <div id="deploy-status" style="font-size:12px;margin-top:10px;min-height:18px"></div>
-      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v1.1</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v1.2</div>
     </div>
   </div>
 </div>
@@ -699,7 +691,7 @@ async function renderToday() {
 
   renderMeals(sport, data, key);
   renderSupps(sport, data, key);
-  renderProtein(data);
+  renderProtein(data, sport);
   renderWater(data, key);
 }
 
@@ -762,7 +754,7 @@ async function toggleMeal(id, key) {
   var data = await getDayData(key);
   data.meals[id] = !data.meals[id];
   await saveDayData(key, data);
-  renderToday();
+  renderToday(); // protein bar da renderToday içinde güncellenir
 }
 async function toggleSupp(id, key) {
   var data = await getDayData(key);
@@ -770,27 +762,23 @@ async function toggleSupp(id, key) {
   await saveDayData(key, data);
   renderToday();
 }
-async function toggleSource(el) {
-  var key  = todayKey();
-  var data = await getDayData(key);
-  var idx  = el.dataset.idx;
-  var val  = parseInt(el.dataset.val);
-  if (data.proteinMap[idx]) delete data.proteinMap[idx];
-  else data.proteinMap[idx] = val;
-  await saveDayData(key, data);
-  renderProtein(data);
-}
+// toggleSource removed — protein from meals
 
 // ── PROTEIN ─────────────────────────────────────────────
-function renderProtein(data) {
-  var pm    = data.proteinMap || {};
-  var total = Object.values(pm).reduce(function(a,b){return a+b;}, 0);
-  var pct   = Math.min(100, Math.round(total / PROTEIN_GOAL * 100));
+function renderProtein(data, sport) {
+  // Protein miktarını işaretlenen öğünlerden hesapla
+  var meals = MEALS_CONFIG[sport] || MEALS_CONFIG[null];
+  var total = 0;
+  meals.forEach(function(m) {
+    if (data.meals && data.meals[m.id]) {
+      // p değerinden sayıyı çıkar (~45g -> 45)
+      var match = m.p.match(/\d+/);
+      if (match) total += parseInt(match[0]);
+    }
+  });
+  var pct = Math.min(100, Math.round(total / PROTEIN_GOAL * 100));
   document.getElementById('protein-current').textContent = total;
   document.getElementById('protein-bar').style.width = pct + '%';
-  document.querySelectorAll('.source-chip').forEach(function(chip) {
-    chip.classList.toggle('active', !!pm[chip.dataset.idx]);
-  });
 }
 
 // ── WATER ───────────────────────────────────────────────
