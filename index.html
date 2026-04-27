@@ -379,7 +379,7 @@
         🚀 GitHub'a Gönder
       </button>
       <div id="deploy-status" style="font-size:12px;margin-top:10px;min-height:18px"></div>
-      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v1.9</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v2.0</div>
     </div>
   </div>
 </div>
@@ -438,18 +438,14 @@ const TR_DAYS   = ['Pazar','Pazartesi','Sal\u0131','\u00c7ar\u015famba','Per\u01
 const TR_DAYS_S = ['Pt','Sa','\u00c7a','Pe','Cu','Ct','Pz'];
 const TR_MONTHS = ['Ocak','\u015eubat','Mart','Nisan','May\u0131s','Haziran','Temmuz','A\u011fustos','Eyl\u00fcl','Ekim','Kas\u0131m','Aral\u0131k'];
 
-// ── JSONBIN CONFIG ───────────────────────────────────────
-const JB_KEY    = '$2a$10$jbd8f0Axt8Hol4QhKiOsmuCxpyHv2MHbBxNjcqyVaD3eWp0j.O5Su';
-const JB_BIN    = '69ef59d8aaba88219742527e';
-const JB_URL    = 'https://api.jsonbin.io/v3/b/' + JB_BIN;
+// ── LOCAL STORAGE ────────────────────────────────────────
+const STORAGE_KEY = 'beslenme-v2';
 
 // GitHub config (sadece index.html deploy için)
 const GH_TOKEN  = '';
 const GH_REPO   = 'koraybagcan/beslenme-takip';
 const GH_FILE   = 'index.html';
 const GH_API    = 'https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE;
-
-var cache = {};
 
 function emptyDay() {
   return { sport: null, meals: {}, supps: {}, water: 0 };
@@ -467,61 +463,62 @@ function parseKey(k) {
   return new Date(p[0], p[1]-1, p[2], 12, 0, 0);
 }
 
-var dataLoaded = false;
+function loadStore() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch(e) { return {}; }
+}
 
-async function loadAllData() {
-  if (dataLoaded) return;
-  try {
-    var res = await fetch(JB_URL + '/latest', {
-      headers: { 'X-Master-Key': JB_KEY }
-    });
-    var json = await res.json();
-    var data = json.record || {};
-    Object.keys(data).forEach(function(k) {
-      var d = data[k];
-      if (!d.meals) d.meals = {};
-      if (!d.supps) d.supps = {};
-      cache[k] = d;
-    });
-    dataLoaded = true;
-  } catch(e) {
-    console.error('loadAllData error', e);
-  }
+function saveStore(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
 async function getDayData(key) {
-  await loadAllData();
-  if (!cache[key]) cache[key] = emptyDay();
-  return cache[key];
+  var store = loadStore();
+  if (!store[key]) store[key] = emptyDay();
+  return store[key];
 }
 
-var saveTimeout = null;
-
 function saveDayData(key, data) {
-  cache[key] = data;
-  // Debounce: son değişiklikten 1.5 sn sonra kaydet
-  clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(async function() {
-    var ind = document.getElementById('sync-indicator');
-    if (ind) { ind.textContent = '\u2601\ufe0f Kaydediliyor...'; ind.style.color = 'var(--text3)'; }
-    try {
-      await fetch(JB_URL, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'X-Master-Key': JB_KEY },
-        body: JSON.stringify(cache)
-      });
-      if (ind) { ind.textContent = '\u2705 Kaydedildi'; ind.style.color = 'var(--green)';
-        setTimeout(function() { ind.textContent = ''; }, 2000); }
-    } catch(e) {
-      console.error('saveDayData error', e);
-      if (ind) { ind.textContent = '\u274c Kaydetme hatası'; ind.style.color = 'var(--accent3)'; }
-    }
-  }, 1500);
+  var store = loadStore();
+  store[key] = data;
+  saveStore(store);
+  var ind = document.getElementById('sync-indicator');
+  if (ind) {
+    ind.textContent = '\u2705 Kaydedildi';
+    ind.style.color = 'var(--green)';
+    setTimeout(function() { ind.textContent = ''; }, 1500);
+  }
 }
 
 async function loadRange(keys) {
-  await loadAllData();
-  keys.forEach(function(k) { if (!cache[k]) cache[k] = emptyDay(); });
+  // localStorage anlık, loadRange'e gerek yok
+}
+
+// Eski JSONBin verisini localStorage'a taşı (bir kez)
+async function migrateFromJsonBin() {
+  if (localStorage.getItem('jb-migrated')) return;
+  try {
+    var res = await fetch('https://api.jsonbin.io/v3/b/69ef59d8aaba88219742527e/latest', {
+      headers: { 'X-Master-Key': '$2a$10$jbd8f0Axt8Hol4QhKiOsmuCxpyHv2MHbBxNjcqyVaD3eWp0j.O5Su' }
+    });
+    var json = await res.json();
+    var data = json.record || {};
+    // Mevcut localStorage ile birleştir (varsa)
+    var existing = loadStore();
+    Object.keys(data).forEach(function(k) {
+      if (!existing[k]) {
+        var d = data[k];
+        if (!d.meals) d.meals = {};
+        if (!d.supps) d.supps = {};
+        existing[k] = d;
+      }
+    });
+    saveStore(existing);
+    localStorage.setItem('jb-migrated', '1');
+    console.log('JSONBin migration done');
+  } catch(e) {
+    console.log('Migration skipped:', e.message);
+  }
 }
 
 
@@ -713,7 +710,7 @@ async function toggleMeal(id, key) {
 async function toggleSupp(id, key) {
   var data = await getDayData(key);
   data.supps[id] = !data.supps[id];
-  await saveDayData(key, data);
+  saveDayData(key, data);
   renderToday();
 }
 // toggleSource removed — protein from meals
@@ -937,8 +934,10 @@ function showPage(name) {
 }
 
 // ── BOOT ─────────────────────────────────────────────────
-initCal();
-renderToday();
+migrateFromJsonBin().then(function() {
+  initCal();
+  renderToday();
+});
 
 // Service Worker — cache'i bypass et, her zaman network'ten al
 if ('serviceWorker' in navigator) {
@@ -952,7 +951,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// sync indicator handled in saveDayData
+
 </script>
 </body>
 </html>
