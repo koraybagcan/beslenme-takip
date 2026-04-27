@@ -379,7 +379,7 @@
         🚀 GitHub'a Gönder
       </button>
       <div id="deploy-status" style="font-size:12px;margin-top:10px;min-height:18px"></div>
-      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v1.7</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v1.8</div>
     </div>
   </div>
 </div>
@@ -438,17 +438,18 @@ const TR_DAYS   = ['Pazar','Pazartesi','Sal\u0131','\u00c7ar\u015famba','Per\u01
 const TR_DAYS_S = ['Pt','Sa','\u00c7a','Pe','Cu','Ct','Pz'];
 const TR_MONTHS = ['Ocak','\u015eubat','Mart','Nisan','May\u0131s','Haziran','Temmuz','A\u011fustos','Eyl\u00fcl','Ekim','Kas\u0131m','Aral\u0131k'];
 
-// ── GITHUB CONFIG ────────────────────────────────────────
-const GH_TOKEN   = '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';
-const GH_REPO    = 'koraybagcan/beslenme-takip';
-const GH_FILE    = 'index.html';
-const GH_API     = 'https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE;
+// ── JSONBIN CONFIG ───────────────────────────────────────
+const JB_KEY    = '$2a$10$jbd8f0Axt8Hol4QhKiOsmuCxpyHv2MHbBxNjcqyVaD3eWp0j.O5Su';
+const JB_BIN    = '69ef59d8aaba88219742527e';
+const JB_URL    = 'https://api.jsonbin.io/v3/b/' + JB_BIN;
 
-// ── GITHUB DATA STORAGE ──────────────────────────────────
-const GH_DATA_API = 'https://api.github.com/repos/' + GH_REPO + '/contents/data.json';
+// GitHub config (sadece index.html deploy için)
+const GH_TOKEN  = '';
+const GH_REPO   = 'koraybagcan/beslenme-takip';
+const GH_FILE   = 'index.html';
+const GH_API    = 'https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE;
 
 var cache = {};
-var dataFileSha = null;
 
 function emptyDay() {
   return { sport: null, meals: {}, supps: {}, water: 0 };
@@ -469,14 +470,13 @@ function parseKey(k) {
 async function loadAllData() {
   if (Object.keys(cache).length > 0) return;
   try {
-    var res = await fetch(GH_DATA_API, {
-      headers: { 'Authorization': 'token ' + GH_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
+    var res = await fetch(JB_URL + '/latest', {
+      headers: { 'X-Master-Key': JB_KEY }
     });
-    var file = await res.json();
-    dataFileSha = file.sha;
-    var decoded = JSON.parse(decodeURIComponent(escape(atob(file.content.replace(/\n/g, '')))));
-    Object.keys(decoded).forEach(function(k) {
-      var d = decoded[k];
+    var json = await res.json();
+    var data = json.record || {};
+    Object.keys(data).forEach(function(k) {
+      var d = data[k];
       if (!d.meals) d.meals = {};
       if (!d.supps) d.supps = {};
       cache[k] = d;
@@ -495,29 +495,14 @@ async function getDayData(key) {
 async function saveDayData(key, data) {
   cache[key] = data;
   try {
-    if (!dataFileSha) {
-      var infoRes = await fetch(GH_DATA_API, {
-        headers: { 'Authorization': 'token ' + GH_TOKEN, 'Accept': 'application/vnd.github.v3+json' }
-      });
-      var info = await infoRes.json();
-      dataFileSha = info.sha;
-    }
-    var encoded = btoa(unescape(encodeURIComponent(JSON.stringify(cache, null, 2))));
-    var pushRes = await fetch(GH_DATA_API, {
+    await fetch(JB_URL, {
       method: 'PUT',
       headers: {
-        'Authorization': 'token ' + GH_TOKEN,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-Master-Key': JB_KEY
       },
-      body: JSON.stringify({
-        message: key + ' guncellendi',
-        content: encoded,
-        sha: dataFileSha
-      })
+      body: JSON.stringify(cache)
     });
-    var result = await pushRes.json();
-    if (result.content) dataFileSha = result.content.sha;
   } catch(e) {
     console.error('saveDayData error', e);
   }
