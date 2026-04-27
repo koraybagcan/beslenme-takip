@@ -379,7 +379,7 @@
         🚀 GitHub'a Gönder
       </button>
       <div id="deploy-status" style="font-size:12px;margin-top:10px;min-height:18px"></div>
-      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v2.1</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v2.2</div>
     </div>
   </div>
 </div>
@@ -897,7 +897,27 @@ async function renderWeek() {
     grid.appendChild(dayEl);
   }
 
-  document.getElementById('streak-num').textContent = streak;
+  // Seri: tüm geçmişe bak, bugünden geriye doğru üst üste tamamlanan günler
+  var allStreak = 0;
+  var checkDate = new Date(today);
+  checkDate.setDate(checkDate.getDate() - 1); // dünden başla
+  var allStore = loadStore();
+  while (true) {
+    var checkKey = dateKey(checkDate);
+    var cds = allStore[checkKey];
+    if (!cds || !cds.sport) break;
+    var cMeals = Object.values(cds.meals || {}).filter(Boolean).length;
+    var cSupps = Object.values(cds.supps || {}).filter(Boolean).length;
+    var cExpMeals = (MEALS_CONFIG[cds.sport] || MEALS_CONFIG[null]).length;
+    var cExpSupps = SUPPS_ALL.filter(function(s) { return s.activeFor.indexOf(cds.sport) !== -1; }).length;
+    if (cMeals >= cExpMeals && cSupps >= cExpSupps) {
+      allStreak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+  document.getElementById('streak-num').textContent = allStreak;
   var ws = Math.round(((tMeals/14) + (tSupps/28) + Math.min(tWater/(WATER_GOAL*7),1)) / 3 * 100);
   document.getElementById('week-score').textContent = ws + '%';
   document.getElementById('stat-meals').textContent = tMeals + '/14';
