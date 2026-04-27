@@ -379,7 +379,7 @@
         🚀 GitHub'a Gönder
       </button>
       <div id="deploy-status" style="font-size:12px;margin-top:10px;min-height:18px"></div>
-      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v2.0</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v2.1</div>
     </div>
   </div>
 </div>
@@ -767,7 +767,7 @@ function openSheet(key) {
   var d = parseKey(key);
   document.getElementById('sheet-date-label').textContent =
     TR_DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + TR_MONTHS[d.getMonth()] + ' ' + d.getFullYear();
-  var sport = getDayData(key).sport;
+  var sport = (loadStore()[key] || emptyDay()).sport;
   ['fitness','hali','bos'].forEach(function(t) {
     document.getElementById('opt-' + t).className =
       'sport-option' + (sport === t ? ' sel-' + t : '');
@@ -810,26 +810,17 @@ function calNextMonth() { calMonth++; if (calMonth > 11) { calMonth = 0;  calYea
 async function renderCal() {
   document.getElementById('cal-month-label').textContent = TR_MONTHS[calMonth] + ' ' + calYear;
   var list = document.getElementById('cal-list');
-  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">Y\u00fckleniyor...</div>';
   var days = new Date(calYear, calMonth + 1, 0).getDate();
   var tk   = todayKey();
 
-  // Collect keys we need
-  var keysNeeded = [];
-  for (var d = 1; d <= days; d++) {
-    var dk = dateKey(new Date(calYear, calMonth, d));
-    if (dk >= tk) keysNeeded.push(dk);
-  }
-  // Batch load
-  await loadRange(keysNeeded);
-
+  var store = loadStore();
   list.innerHTML = '';
   for (var d = 1; d <= days; d++) {
     var date  = new Date(calYear, calMonth, d);
     var key   = dateKey(date);
     if (key < tk) continue;
     var isToday = key === tk;
-    var dayData = cache[key] || emptyDay();
+    var dayData = store[key] || emptyDay();
     var si = getSportInfo(dayData.sport);
 
     var row = document.createElement('div');
@@ -851,21 +842,12 @@ async function renderCal() {
 // ── WEEKLY ───────────────────────────────────────────────
 async function renderWeek() {
   var grid  = document.getElementById('week-grid');
-  grid.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px;grid-column:span 7">Y\u00fckleniyor...</div>';
   var today = new Date();
   var tk    = todayKey();
   var dow   = today.getDay();
   var off   = dow === 0 ? -6 : 1 - dow;
 
-  // Collect week keys and batch load
-  var weekKeys = [];
-  for (var i = 0; i < 7; i++) {
-    var wd = new Date(today);
-    wd.setDate(today.getDate() + off + i);
-    weekKeys.push(dateKey(wd));
-  }
-  await loadRange(weekKeys);
-
+  var store = loadStore();
   grid.innerHTML = '';
   var streak=0, tMeals=0, tSupps=0, tWater=0;
 
@@ -873,7 +855,7 @@ async function renderWeek() {
     var d = new Date(today);
     d.setDate(today.getDate() + off + i);
     var key = dateKey(d);
-    var ds  = cache[key];
+    var ds  = store[key];
 
     var dayEl = document.createElement('div');
     dayEl.className = 'week-day';
