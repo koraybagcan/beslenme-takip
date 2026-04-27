@@ -379,7 +379,7 @@
         🚀 GitHub'a Gönder
       </button>
       <div id="deploy-status" style="font-size:12px;margin-top:10px;min-height:18px"></div>
-      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v1.8</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:12px;text-align:center;letter-spacing:1px">v1.9</div>
     </div>
   </div>
 </div>
@@ -467,8 +467,10 @@ function parseKey(k) {
   return new Date(p[0], p[1]-1, p[2], 12, 0, 0);
 }
 
+var dataLoaded = false;
+
 async function loadAllData() {
-  if (Object.keys(cache).length > 0) return;
+  if (dataLoaded) return;
   try {
     var res = await fetch(JB_URL + '/latest', {
       headers: { 'X-Master-Key': JB_KEY }
@@ -481,6 +483,7 @@ async function loadAllData() {
       if (!d.supps) d.supps = {};
       cache[k] = d;
     });
+    dataLoaded = true;
   } catch(e) {
     console.error('loadAllData error', e);
   }
@@ -492,20 +495,28 @@ async function getDayData(key) {
   return cache[key];
 }
 
-async function saveDayData(key, data) {
+var saveTimeout = null;
+
+function saveDayData(key, data) {
   cache[key] = data;
-  try {
-    await fetch(JB_URL, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Master-Key': JB_KEY
-      },
-      body: JSON.stringify(cache)
-    });
-  } catch(e) {
-    console.error('saveDayData error', e);
-  }
+  // Debounce: son değişiklikten 1.5 sn sonra kaydet
+  clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async function() {
+    var ind = document.getElementById('sync-indicator');
+    if (ind) { ind.textContent = '\u2601\ufe0f Kaydediliyor...'; ind.style.color = 'var(--text3)'; }
+    try {
+      await fetch(JB_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Master-Key': JB_KEY },
+        body: JSON.stringify(cache)
+      });
+      if (ind) { ind.textContent = '\u2705 Kaydedildi'; ind.style.color = 'var(--green)';
+        setTimeout(function() { ind.textContent = ''; }, 2000); }
+    } catch(e) {
+      console.error('saveDayData error', e);
+      if (ind) { ind.textContent = '\u274c Kaydetme hatası'; ind.style.color = 'var(--accent3)'; }
+    }
+  }, 1500);
 }
 
 async function loadRange(keys) {
@@ -696,8 +707,8 @@ function renderSupps(sport, data, key) {
 async function toggleMeal(id, key) {
   var data = await getDayData(key);
   data.meals[id] = !data.meals[id];
-  await saveDayData(key, data);
-  renderToday(); // protein bar da renderToday içinde güncellenir
+  saveDayData(key, data);
+  renderToday();
 }
 async function toggleSupp(id, key) {
   var data = await getDayData(key);
@@ -781,7 +792,7 @@ async function selectSport(type) {
   var wasKey = sheetKey;
   var data = await getDayData(wasKey);
   data.sport = type;
-  await saveDayData(wasKey, data);
+  saveDayData(wasKey, data);
   closeSheet();
   renderToday();
   if (document.getElementById('page-cal').classList.contains('active')) renderCal();
@@ -941,18 +952,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// Sync indicator
-var syncTimeout = null;
-var origSave = saveDayData;
-saveDayData = async function(key, data) {
-  var ind = document.getElementById('sync-indicator');
-  if (ind) { ind.textContent = '\u2601\ufe0f Kaydediliyor...'; ind.style.color = 'var(--text3)'; }
-  await origSave(key, data);
-  if (ind) { ind.textContent = '\u2705 Kaydedildi'; ind.style.color = 'var(--green)';
-    clearTimeout(syncTimeout);
-    syncTimeout = setTimeout(function() { ind.textContent = ''; }, 2000);
-  }
-};
+// sync indicator handled in saveDayData
 </script>
 </body>
 </html>
